@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --paper: #fbf6ee;
+  --ink: #1b2440;
+  --ink-soft: #5c6378;
+  --coral: #ff6f61;
+  --coral-soft: #ffe7e3;
+  --river: #2f6be3;
+  --river-soft: #e9f0fd;
+  --mint: #10b597;
+  --mint-soft: #ddf6f0;
+  --gold: #f2a93b;
+  --line: #e8dfd0;
+}
+
+html,
+body {
+  background: var(--paper);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-family: var(--font-plex-thai), system-ui, sans-serif;
+}
+
+h1, h2, h3, h4, .font-heading {
+  font-family: var(--font-kanit), system-ui, sans-serif;
+}
+
+/* Leaflet marker icons load from CDN (configured per-marker in code). */
+.leaflet-container {
+  font-family: var(--font-plex-thai), system-ui, sans-serif;
+  z-index: 0;
+}
+
+/* Smooth grab cursor for draggable cards */
+.dnd-grab {
+  cursor: grab;
+}
+.dnd-grab:active {
+  cursor: grabbing;
+}
+
+::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 999px;
+}
