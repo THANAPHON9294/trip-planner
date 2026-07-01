@@ -45,20 +45,16 @@ export function useTripData(slug: string): TripData {
 
   const loadAll = useCallback(
     async (showSpinner: boolean) => {
-      try {
-        if (showSpinner) setLoading(true);
-        // Joining is idempotent and, being SECURITY DEFINER, also lets a brand-new
-        // visitor read a trip they weren't a member of yet (opening a link = joining).
+      // The actual work. Wrapped below so we can time it out and retry — a
+      // Supabase request occasionally stalls on first load (auth-lock edge case)
+      // and used to hang the "Loading trip…" spinner until a manual refresh.
+      const doLoad = async () => {
         const t = await joinTripBySlug(slug);
         if (!t) {
           setNotFound(true);
-          setLoading(false);
           return;
         }
-        tripIdRef.current = t.id;
-        setTrip(t);
 
-        // Reconcile dated days before reading them back.
         const desired = desiredDatedDays(t);
         if (desired.length > 0) {
           await ensureDatedDays(t.id, desired);
@@ -70,13 +66,37 @@ export function useTripData(slug: string): TripData {
           fetchDayPlans(t.id),
           fetchAssignments(t.id),
         ]);
+        // Commit everything together, only after all fetches succeed, so a
+        // partial failure shows the error screen instead of an empty board.
+        tripIdRef.current = t.id;
+        setTrip(t);
         setMembers(m);
         setPlaces(p);
         setDays(d);
         setAssignments(a);
         setError(null);
+      };
+
+      const withTimeout = (ms: number) =>
+        Promise.race([
+          doLoad(),
+          new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), ms)),
+        ]);
+
+      if (showSpinner) setLoading(true);
+      try {
+        try {
+          await withTimeout(8000);
+        } catch {
+          // One automatic retry before surfacing an error (mirrors a manual refresh).
+          await withTimeout(8000);
+        }
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to load trip");
+        setError(
+          e instanceof Error && e.message !== "timeout"
+            ? e.message
+            : "This trip is taking too long to load.",
+        );
       } finally {
         if (showSpinner) setLoading(false);
       }

@@ -45,6 +45,17 @@ h1, h2, h3, h4, .font-heading {
   cursor: grabbing;
 }
 
+/* iOS Safari auto-zooms when focusing a control with font-size < 16px.
+   Force 16px on form controls on small screens (!important to beat Tailwind's
+   text-sm). Desktop keeps the smaller, denser sizing. */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
 ::-webkit-scrollbar {
   height: 10px;
   width: 10px;
