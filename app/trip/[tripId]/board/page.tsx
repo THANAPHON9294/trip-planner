@@ -69,21 +69,26 @@ export default function BoardPage() {
 
   return (
     <div>
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <div className="inline-flex rounded-xl border border-line bg-white p-1">
-          {(["neighborhood", "person", "desire", "category"] as GroupMode[]).map((m) => (
-            <button
-              key={m}
-              onClick={() => setMode(m)}
-              className={`rounded-lg px-3 py-1.5 text-sm font-medium capitalize transition ${
-                mode === m ? "bg-river text-white" : "text-ink-soft hover:bg-black/5"
-              }`}
-            >
-              {m === "neighborhood" ? "Neighborhood" : m}
-            </button>
-          ))}
+      <div className="mb-5 flex items-center gap-3">
+        <div className="min-w-0 flex-1 overflow-x-auto pb-1">
+          <div className="inline-flex rounded-xl border border-line bg-white p-1">
+            {(["neighborhood", "person", "desire", "category"] as GroupMode[]).map((m) => (
+              <button
+                key={m}
+                onClick={() => setMode(m)}
+                className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium capitalize transition ${
+                  mode === m ? "bg-river text-white" : "text-ink-soft hover:bg-black/5"
+                }`}
+              >
+                {m === "neighborhood" ? "Neighborhood" : m}
+              </button>
+            ))}
+          </div>
         </div>
-        <Button onClick={openNew}>+ Add place</Button>
+        <Button onClick={openNew} className="shrink-0 whitespace-nowrap">
+          <span className="sm:hidden">+ Add</span>
+          <span className="hidden sm:inline">+ Add place</span>
+        </Button>
       </div>
 
       {places.length === 0 ? (

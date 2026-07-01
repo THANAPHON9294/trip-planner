@@ -97,15 +97,18 @@ export default function HomePage() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
-      <header className="mb-8 flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="font-heading text-3xl font-bold">My Trips</h1>
+      <header className="mb-8 flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <h1 className="font-heading text-2xl font-bold sm:text-3xl">My Trips</h1>
           <p className="mt-1 text-sm text-ink-soft">
             {profile?.display_name ? `Hey ${profile.display_name} — ` : ""}plan group trips with friends.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button onClick={() => setShowNew(true)}>+ New trip</Button>
+        <div className="flex shrink-0 items-center gap-2">
+          <Button onClick={() => setShowNew(true)} className="whitespace-nowrap">
+            <span className="sm:hidden">+ New</span>
+            <span className="hidden sm:inline">+ New trip</span>
+          </Button>
           <AccountMenu />
         </div>
       </header>

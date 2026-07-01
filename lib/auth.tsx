@@ -75,12 +75,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
+    // Are we returning from the Google OAuth redirect (…/?code=…)?
+    const hasOAuthCode =
+      typeof window !== "undefined" && new URLSearchParams(window.location.search).has("code");
+
+    // Once signed in after an OAuth redirect, strip ?code=… from the URL so a
+    // later refresh doesn't try to re-exchange a spent code.
+    const cleanUrl = () => {
+      if (hasOAuthCode && typeof window !== "undefined") {
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+    };
+
     // onAuthStateChange fires INITIAL_SESSION on load and SIGNED_IN after the
     // OAuth redirect — either one clears the loading gate.
     const { data: sub } = supabase.auth.onAuthStateChange(async (_event, sess) => {
       if (!mounted) return;
       setSession(sess);
       if (sess?.user) {
+        cleanUrl();
         try {
           await ensureProfile(sess.user);
         } catch {
@@ -89,29 +102,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setProfile(null);
       }
-      settle();
+      // During an in-flight OAuth exchange the first event can be a null session;
+      // don't flash the sign-in screen — wait for the session (or the timeout).
+      if (!hasOAuthCode || sess) settle();
     });
 
-    // Fallback: resolve loading even if the OAuth code exchange rejects
-    // (a stale ?code in the URL is what made a refresh "fix" it before).
+    // Fallback: resolve loading even if the OAuth code exchange rejects.
     supabase.auth
       .getSession()
       .then(async ({ data }) => {
         if (!mounted) return;
         setSession(data.session);
         if (data.session?.user) {
+          cleanUrl();
           try {
             await ensureProfile(data.session.user);
           } catch {
             /* ignore */
           }
         }
+        if (!hasOAuthCode || data.session) settle();
       })
-      .catch(() => {})
-      .finally(settle);
+      .catch(() => {});
+
+    // Hard safety net: never hang the loader, even if auth init stalls (a known
+    // Web Locks edge case). A later auth event still fills in the session.
+    const timeout = setTimeout(settle, 5000);
 
     return () => {
       mounted = false;
+      clearTimeout(timeout);
       sub.subscription.unsubscribe();
     };
   }, [ensureProfile]);
