@@ -39,6 +39,12 @@ create policy "profiles update own" on profiles
 
 -- ---------- Column additions ----------
 alter table trips add column if not exists created_by uuid references auth.users(id);
+
+-- Let a member leave (or be removed) even after they've added places: their
+-- places stay, just un-attributed. Without this, the FK blocks the delete.
+alter table places drop constraint if exists places_added_by_member_id_fkey;
+alter table places add constraint places_added_by_member_id_fkey
+  foreign key (added_by_member_id) references trip_members(id) on delete set null;
 alter table trip_members add column if not exists user_id uuid references auth.users(id) on delete cascade;
 alter table trip_members add column if not exists role text not null default 'member';
 
@@ -128,6 +134,11 @@ create policy members_select on trip_members for select to authenticated
 drop policy if exists members_insert_self on trip_members;
 create policy members_insert_self on trip_members for insert to authenticated
   with check (user_id = auth.uid());
+
+-- A user can rename themselves on a trip (per-trip display name).
+drop policy if exists members_update_self on trip_members;
+create policy members_update_self on trip_members for update to authenticated
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 drop policy if exists members_delete_self on trip_members;
 create policy members_delete_self on trip_members for delete to authenticated

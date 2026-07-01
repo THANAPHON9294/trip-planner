@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTrip } from "@/components/TripProvider";
 import { Button, Field, inputClass } from "@/components/ui";
+import { TripNameModal } from "@/components/TripNameModal";
 import { updateTrip, removeMember } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
@@ -12,6 +13,8 @@ export default function SetupPage() {
   const { trip, members, reload } = useTrip();
   const { user } = useAuth();
   const isOwner = trip!.created_by === user?.id;
+  const myMember = members.find((m) => m.user_id === user?.id);
+  const [nameModalOpen, setNameModalOpen] = useState(false);
 
   const [name, setName] = useState(trip!.name);
   const [start, setStart] = useState(trip!.start_date ?? "");
@@ -141,6 +144,28 @@ export default function SetupPage() {
         </div>
       </section>
 
+      {/* Your name on this trip */}
+      <section className="space-y-2">
+        <h3 className="font-heading text-lg font-semibold">Your name on this trip</h3>
+        <div className="flex items-center gap-3 rounded-xl border border-line bg-white px-3 py-2">
+          {myMember?.avatar_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={myMember.avatar_url} alt="" className="h-8 w-8 rounded-full object-cover" />
+          ) : (
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-river-soft text-xs font-semibold text-river">
+              {(myMember?.name ?? "?").charAt(0).toUpperCase()}
+            </span>
+          )}
+          <span className="flex-1 truncate font-medium">{myMember?.name ?? "—"}</span>
+          <Button variant="outline" onClick={() => setNameModalOpen(true)} disabled={!myMember}>
+            Edit
+          </Button>
+        </div>
+        <p className="text-xs text-ink-soft">
+          You can go by a different name on each trip. Your avatar comes from your Google profile.
+        </p>
+      </section>
+
       {/* Members */}
       <section className="space-y-3">
         <h3 className="font-heading text-lg font-semibold">Who&apos;s on this trip</h3>
@@ -192,6 +217,14 @@ export default function SetupPage() {
           Go to board →
         </Button>
       </div>
+
+      <TripNameModal
+        open={nameModalOpen}
+        onClose={() => setNameModalOpen(false)}
+        tripId={trip!.id}
+        currentName={myMember?.name ?? ""}
+        onSaved={reload}
+      />
     </div>
   );
 }

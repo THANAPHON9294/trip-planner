@@ -7,12 +7,14 @@ import { fetchMyTrips, createTrip, joinTripBySlug, leaveTrip } from "@/lib/api";
 import { generateSlug, normalizeSlug } from "@/lib/slug";
 import { Button, Modal, Field, inputClass, Spinner } from "@/components/ui";
 import { AccountMenu } from "@/components/AccountMenu";
+import { useConfirm } from "@/components/ConfirmProvider";
 import { useAuth } from "@/lib/auth";
 import type { Trip } from "@/lib/types";
 
 export default function HomePage() {
   const router = useRouter();
   const { profile } = useAuth();
+  const confirm = useConfirm();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
@@ -78,9 +80,19 @@ export default function HomePage() {
   async function handleLeave(e: React.MouseEvent, tripId: string) {
     e.preventDefault();
     e.stopPropagation();
-    if (!window.confirm("Leave this trip? You can rejoin with the code later.")) return;
-    await leaveTrip(tripId);
-    load();
+    const ok = await confirm({
+      title: "Leave this trip?",
+      message: "You can rejoin later with the code. Places you added stay on the trip.",
+      confirmLabel: "Leave",
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await leaveTrip(tripId);
+      load();
+    } catch (e2) {
+      setErr(e2 instanceof Error ? e2.message : "Failed to leave trip");
+    }
   }
 
   return (

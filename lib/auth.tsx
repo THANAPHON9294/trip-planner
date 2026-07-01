@@ -67,20 +67,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
+    let settled = false;
+    const settle = () => {
+      if (mounted && !settled) {
+        settled = true;
+        setLoading(false);
+      }
+    };
 
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (!mounted) return;
-      setSession(data.session);
-      if (data.session?.user) await ensureProfile(data.session.user);
-      setLoading(false);
-    });
-
+    // onAuthStateChange fires INITIAL_SESSION on load and SIGNED_IN after the
+    // OAuth redirect — either one clears the loading gate.
     const { data: sub } = supabase.auth.onAuthStateChange(async (_event, sess) => {
       if (!mounted) return;
       setSession(sess);
-      if (sess?.user) await ensureProfile(sess.user);
-      else setProfile(null);
+      if (sess?.user) {
+        try {
+          await ensureProfile(sess.user);
+        } catch {
+          /* don't let a profile hiccup block the app */
+        }
+      } else {
+        setProfile(null);
+      }
+      settle();
     });
+
+    // Fallback: resolve loading even if the OAuth code exchange rejects
+    // (a stale ?code in the URL is what made a refresh "fix" it before).
+    supabase.auth
+      .getSession()
+      .then(async ({ data }) => {
+        if (!mounted) return;
+        setSession(data.session);
+        if (data.session?.user) {
+          try {
+            await ensureProfile(data.session.user);
+          } catch {
+            /* ignore */
+          }
+        }
+      })
+      .catch(() => {})
+      .finally(settle);
 
     return () => {
       mounted = false;

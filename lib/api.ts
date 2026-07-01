@@ -62,31 +62,60 @@ export async function updateTrip(id: string, patch: Partial<Trip>): Promise<Trip
 export async function joinTripBySlug(slug: string): Promise<Trip | null> {
   const { data, error } = await supabase.rpc("join_trip_by_slug", { p_slug: slug });
   if (error) throw error;
-  return (data as Trip) ?? null;
+  // The RPC returns a trips composite; for an unknown slug every field is null.
+  const trip = data as Trip | null;
+  return trip && trip.id ? trip : null;
 }
 
 // ---------- Members ----------
-type MemberRow = TripMember & {
-  profiles?: { display_name: string | null; avatar_url: string | null } | null;
-};
-
 export async function fetchMembers(tripId: string): Promise<TripMember[]> {
   const { data, error } = await supabase
     .from("trip_members")
-    .select("*, profiles(display_name, avatar_url)")
+    .select("*")
     .eq("trip_id", tripId)
     .order("created_at", { ascending: true });
   if (error) throw error;
-  // Prefer the live profile name/avatar; fall back to the row's stored name.
-  return ((data as MemberRow[]) ?? []).map((m) => ({
-    id: m.id,
-    trip_id: m.trip_id,
-    user_id: m.user_id,
-    role: m.role,
-    created_at: m.created_at,
-    name: m.profiles?.display_name ?? m.name,
-    avatar_url: m.profiles?.avatar_url ?? m.avatar_url ?? null,
-  }));
+  const rows = (data as TripMember[]) ?? [];
+
+  // Fetch profiles separately and merge — there's no FK PostgREST can embed on
+  // (trip_members.user_id and profiles.id both point at auth.users, not each other).
+  const userIds = rows.map((r) => r.user_id).filter((v): v is string => !!v);
+  const profById = new Map<string, { display_name: string | null; avatar_url: string | null }>();
+  if (userIds.length) {
+    const { data: profs } = await supabase
+      .from("profiles")
+      .select("id, display_name, avatar_url")
+      .in("id", userIds);
+    (profs ?? []).forEach((p) =>
+      profById.set(p.id, { display_name: p.display_name, avatar_url: p.avatar_url }),
+    );
+  }
+
+  // The per-trip name (trip_members.name) is authoritative; avatar comes from
+  // the live profile. This lets someone go by a different name on each trip.
+  return rows.map((m) => {
+    const p = m.user_id ? profById.get(m.user_id) : undefined;
+    return {
+      id: m.id,
+      trip_id: m.trip_id,
+      user_id: m.user_id,
+      role: m.role,
+      created_at: m.created_at,
+      name: m.name || p?.display_name || "Traveler",
+      avatar_url: p?.avatar_url ?? m.avatar_url ?? null,
+    };
+  });
+}
+
+/** Rename yourself on a specific trip (per-trip display name). */
+export async function updateMyTripName(tripId: string, name: string): Promise<void> {
+  const uid = await currentUserId();
+  const { error } = await supabase
+    .from("trip_members")
+    .update({ name })
+    .eq("trip_id", tripId)
+    .eq("user_id", uid);
+  if (error) throw error;
 }
 
 /** Remove a member from the trip (used by the roster in setup). */

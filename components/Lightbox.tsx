@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 
 export function Lightbox({ src, alt, onClose }: { src: string; alt: string; onClose: () => void }) {
   useEffect(() => {
@@ -13,7 +14,8 @@ export function Lightbox({ src, alt, onClose }: { src: string; alt: string; onCl
     };
   }, [onClose]);
 
-  return (
+  if (typeof document === "undefined") return null;
+  return createPortal(
     <div
       className="fixed inset-0 z-[2000] flex items-center justify-center bg-ink/80 p-4"
       onClick={onClose}
@@ -32,6 +34,7 @@ export function Lightbox({ src, alt, onClose }: { src: string; alt: string; onCl
       >
         ✕ Close
       </button>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { ReactNode, useEffect } from "react";
+import { createPortal } from "react-dom";
 
 export function Spinner({ label }: { label?: string }) {
   return (
@@ -60,8 +61,10 @@ export function Modal({
     };
   }, [open, onClose]);
 
-  if (!open) return null;
-  return (
+  if (!open || typeof document === "undefined") return null;
+  // Portal to <body> so `fixed` positioning is relative to the viewport, not a
+  // transformed/backdrop-blurred ancestor (e.g. the sticky trip header).
+  return createPortal(
     <div
       className="fixed inset-0 z-[1000] flex items-end justify-center bg-ink/40 p-0 sm:items-center sm:p-4"
       onClick={onClose}
@@ -80,7 +83,8 @@ export function Modal({
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

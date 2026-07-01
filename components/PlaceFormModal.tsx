@@ -8,6 +8,7 @@ import { CATEGORIES, DESIRE_LEVELS } from "@/lib/constants";
 import { resolveCoords, type LatLng } from "@/lib/mapsUrl";
 import { createPlace, updatePlace, deletePlace, uploadPhoto, type PlaceInput } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { useConfirm } from "./ConfirmProvider";
 import type { Place, TripMember, Category, DesireLevel } from "@/lib/types";
 
 const PinDropMap = dynamic(() => import("./map/PinDropMap"), {
@@ -35,7 +36,8 @@ export function PlaceFormModal({
   onMembersChange: () => void;
   editing: Place | null;
 }) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const confirm = useConfirm();
   const myMemberId = members.find((m) => m.user_id === user?.id)?.id ?? "";
 
   const [name, setName] = useState("");
@@ -85,7 +87,11 @@ export function PlaceFormModal({
       setCoords(null);
       setPhotoUrl("");
     }
-  }, [open, editing, members]);
+    // Intentionally not depending on `members`: re-running on a realtime member
+    // update would wipe what the user is typing. `myMemberId` is read at open time
+    // and re-resolved at save.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, editing]);
 
   async function handleResolveUrl() {
     if (!mapsUrl.trim()) return;
@@ -141,7 +147,7 @@ export function PlaceFormModal({
       category,
       category_other: category === "other" ? categoryOther.trim() || null : null,
       desire_level: desire,
-      added_by_member_id: addedBy || null,
+      added_by_member_id: addedBy || myMemberId || null,
       notes: notes.trim() || null,
       google_maps_url: mapsUrl.trim() || null,
       lat: coords?.lat ?? null,
@@ -164,7 +170,13 @@ export function PlaceFormModal({
 
   async function handleDelete() {
     if (!editing) return;
-    if (!window.confirm(`Delete "${editing.name}"?`)) return;
+    const ok = await confirm({
+      title: `Delete "${editing.name}"?`,
+      message: "This removes the place for everyone on the trip.",
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
     setSaving(true);
     try {
       await deletePlace(editing.id);
@@ -239,14 +251,27 @@ export function PlaceFormModal({
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Added by" hint="Whoever wants to go. Defaults to you.">
-            <Combobox
-              value={addedBy}
-              onChange={setAddedBy}
-              items={members.map((m) => ({ value: m.id, label: m.name }))}
-              placeholder="Pick a member"
-              ariaLabel="Added by"
-            />
+          <Field label="Added by">
+            {(() => {
+              const shown = members.find((m) => m.id === addedBy);
+              const shownName = shown?.name ?? profile?.display_name ?? "You";
+              const shownAvatar = shown?.avatar_url ?? profile?.avatar_url ?? null;
+              const isMe = !shown || shown.user_id === user?.id;
+              return (
+                <div className="flex items-center gap-2 rounded-xl border border-line bg-black/[0.03] px-3 py-2 text-sm">
+                  {shownAvatar ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={shownAvatar} alt="" className="h-6 w-6 rounded-full object-cover" />
+                  ) : (
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-river-soft text-xs font-semibold text-river">
+                      {shownName.charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                  <span className="font-medium">{shownName}</span>
+                  {isMe && <span className="ml-auto text-xs text-ink-soft">you</span>}
+                </div>
+              );
+            })()}
           </Field>
           <Field label="Notes" hint="Short — why you want to go.">
             <input className={inputClass} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Sunset views" />

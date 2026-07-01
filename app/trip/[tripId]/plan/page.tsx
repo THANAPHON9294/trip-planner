@@ -16,6 +16,7 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useTrip } from "@/components/TripProvider";
+import { useConfirm } from "@/components/ConfirmProvider";
 import { SortablePlace } from "@/components/plan/SortablePlace";
 import { PlaceCard } from "@/components/PlaceCard";
 import { Button } from "@/components/ui";
@@ -33,6 +34,7 @@ const UNPLANNED = "unplanned";
 
 export default function PlanPage() {
   const { trip, places, members, days, assignments, reload } = useTrip();
+  const confirm = useConfirm();
 
   const placeById = useMemo(() => {
     const m = new Map<string, Place>();
@@ -198,7 +200,13 @@ export default function PlanPage() {
   }
 
   async function handleRemoveDay(dayId: string) {
-    if (!window.confirm("Remove this day? Places in it move back to Unplanned.")) return;
+    const ok = await confirm({
+      title: "Remove this day?",
+      message: "Places in it move back to Unplanned.",
+      confirmLabel: "Remove",
+      danger: true,
+    });
+    if (!ok) return;
     // Unassign places first so they return to the pool, then delete the day.
     const ids = items[dayId] ?? [];
     for (const pid of ids) await unassignPlace(pid);
